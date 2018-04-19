@@ -35,7 +35,7 @@ function PostUserInfo() {
 
 	//将数据通过ajax提交给后端进行检查
 	$.ajax({
-		type: "GET",
+		type: "POST",
 		url: "http://127.0.0.1:5000/api/v1/userlogin/",
 		dataType: "jsonp",
 		//dataType: "json",
@@ -46,21 +46,20 @@ function PostUserInfo() {
 		complete: function() {
 		},
 		success: function(data) {
-			console.warn(data.data);
-			console.warn(username.val());
+			//console.warn(data.data);
+			//console.warn(username.val());
             if (data.data == "true") {
                 $.ajax({
-                    type: "GET",
+                    type: "POST",
                     url: "/auth/login/",
                     dataType: "json",
                     data: {
                         username: username.val()
                     },
-		            complete: function(data) {
-						console.warn("username2:",username.val());
+		            complete: function() {
                     },
                     success: function(data) {
-						console.warn("msg:",data.msg);
+						//console.warn("msg:",data.msg);
 						//console.warn(data.status)
                         if (data.status == 1) {
 				            $(location).attr('href','/workflow/userindex/');
@@ -70,18 +69,12 @@ function PostUserInfo() {
                         }
 					},
                     error: function(XMLHttpRequest, textStatus, errorThrown) {
-						console.warn("status:",XMLHttpRequest.status);
+						//console.warn("status:",XMLHttpRequest.status);
                         alert(errorThrown);
                     }
                 });
 
-			}/* else {
-				$('#wrongpwd-modal-body').html(data.msg);
-				$('#wrongpwd-modal').modal({
-        			keyboard: true
-    			});
-
-			}*/
+			}
 		},
 		error: function(XMLHttpRequest, textStatus, errorThrown) {
 			alert(errorThrown);

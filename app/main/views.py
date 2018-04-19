@@ -4,6 +4,7 @@ from . import main
 
 
 @main.route('/', methods=['GET', 'POST'])
+@login_required
 def index():
     logout_user()
     return render_template('Login.html')
