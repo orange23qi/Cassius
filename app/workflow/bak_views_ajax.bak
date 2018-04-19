@@ -1,0 +1,312 @@
+# -*-coding: utf-8-*-
+from flask import jsonify, request, session
+from flask_login import current_user
+from . import workflow
+from .IsDBA import IsDBA
+from app.models import DBATeam, SchemaList, OrderStatus, OrderList, User, \
+                       OrderType, OrderMysqlDDLInfo, DatabaseType
+from app.mysql.SqlReview import SqlReview
+from app.redis import CounterOrderId
+from app import db
+
+
+@workflow.route('/getdbalist', methods=['GET', 'POST'])
+def GetDBAList():
+    """
+    获取DBA列表
+    """
+    data = []
+    Users = DBATeam.query.all()
+    for row in Users:
+        data.append(row.name)
+
+    return jsonify(data=data)
+
+
+@workflow.route('/getschemalist', methods=['GET', 'POST'])
+def GetSchemaList():
+    """
+    获取数据库列表
+    """
+    data = []
+    Schemas = SchemaList.query.all()
+    for row in Schemas:
+        data.append(row.name)
+
+    return jsonify(data=data)
+
+
+@workflow.route('/getorderlist/<QueryOrderType>', methods=['GET', 'POST'])
+def GetOrderList(QueryOrderType):
+    """
+    根据用户获取用户的工单列表
+    """
+    data = []
+    UserId = current_user.get_id()
+#    NowUser = User.query.filter_by(id=UserId).first().username
+    StatusId = OrderStatus.query.filter_by(name=u"已完成").first().id
+    StatusRejectId = OrderStatus.query.filter_by(name=u"废弃").first().id
+    isdba = IsDBA()
+    DBAResult = isdba.CheckDBAUseId(UserId)
+
+    if QueryOrderType == "todo":
+        Orders = OrderList.query.filter(OrderList.current_user_id == UserId)
+        Orders = Orders.filter(OrderList.order_status != StatusId).all()
+
+    elif QueryOrderType == "doing":
+        Orders = OrderList.query.filter(OrderList.owner_id == UserId)
+        Orders = Orders.filter(OrderList.order_status != StatusId)
+        Orders = Orders.filter(OrderList.order_status != StatusRejectId).all()
+
+    elif QueryOrderType == "finish":
+        if DBAResult['data'] == 1:
+            Orders = OrderList.query.filter(OrderList.auditor_id == UserId)
+            Orders = Orders.filter(OrderList.order_status == StatusId).all()
+        else:
+            Orders = OrderList.query.filter(OrderList.owner_id == UserId)
+            Orders = Orders.filter(OrderList.order_status == StatusId).all()
+
+    elif QueryOrderType == "all":
+        if DBAResult['data'] == 1:
+            Orders = OrderList.query.all()
+        else:
+            Orders = OrderList.query.filter(OrderList.owner_id == UserId).all()
+
+    for row in Orders:
+        RowList = []
+        OrderId = row.order_id
+        OrderTitle = row.order_title
+
+        StatusForOrder = OrderStatus.query.filter_by(id=row.order_status)
+        StatusForOrder = StatusForOrder.first().name
+
+        if StatusForOrder == u"已完成":
+            CurrentUser = "-"
+
+        elif row.current_user_id == -1:
+            CurrentUser = "-"
+
+        else:
+            CurrentUser = User.query.filter_by(id=row.current_user_id).first()
+            CurrentUser = CurrentUser.username
+
+        TypeForOrder = OrderType.query.filter_by(id=row.order_type).first()
+        TypeForOrder = TypeForOrder.name
+
+        CreateTime = row.create_time.strftime('%Y-%m-%d')
+        Owner = User.query.filter_by(id=row.owner_id).first().username
+
+        RowList.append(OrderId)
+        RowList.append(OrderTitle)
+        RowList.append(TypeForOrder)
+        RowList.append(StatusForOrder)
+        RowList.append(CurrentUser)
+        RowList.append(Owner)
+        RowList.append(CreateTime)
+
+        data.append(RowList)
+
+    return jsonify(data=data)
+
+
+@workflow.route('/autoreview/<checktype>', methods=['GET', 'POST'])
+def AutoReview(checktype):
+    """
+    数据库语句校验
+    """
+    status = 1
+    msg = ""
+    data = None
+    DbName = request.form.get('DbName')
+    SqlText = request.form.get('SqlText')
+    SqlType = checktype.lower()
+
+    if SqlType in ('ddl', 'dml'):
+        sqlreview = SqlReview()
+        ReviewResult = sqlreview.SqlReview(DbName, SqlText, SqlType)
+        status = ReviewResult['status']
+        msg = ReviewResult['msg']
+        data = ReviewResult['data']
+
+    else:
+        status = -1
+        msg = '未知的校验类型!'
+
+    return jsonify(status=status, msg=msg, data=data)
+
+
+@workflow.route('/delorder/', methods=['GET', 'POST'])
+def DelOrder():
+    status = 1
+    msg = ""
+
+    OrderId = request.form.get('OrderId')
+
+    OrderTypeId = OrderStatus.query.filter_by(name=u'废弃').first().id
+    OrderInfo = OrderList.query.filter_by(order_id=OrderId).first()
+    OrderInfo.order_status = OrderTypeId
+    OrderInfo.current_user_id = -1
+
+    OrderInfoDetail = OrderMysqlDDLInfo.query.filter(OrderMysqlDDLInfo.order_id == OrderId)
+    OrderInfoDetail = OrderInfoDetail.filter(OrderMysqlDDLInfo.order_status != -1).first()
+    OrderInfoDetail.order_status = OrderTypeId
+    OrderInfoDetail.current_user_id = -1
+
+    db.session.commit()
+
+    return jsonify(status=status, msg=msg)
+
+
+@workflow.route('/rejectorder/', methods=['GET', 'POST'])
+def RejectOrder():
+    status = 1
+    msg = ""
+
+    OrderId = request.form.get('OrderId')
+    OrderTitle = request.form.get('OrderTitle')
+    DbName = request.form.get('DbName')
+    RemarkText = request.form.get('RemarkText')
+    SqlText = request.form.get('SqlText')
+    OwnerId = request.form.get('OwnerId')
+    AuditorId = current_user.get_id()
+
+    OrderStatusId = OrderStatus.query.filter_by(name=u'用户修改').first().id
+    OrderInfo = OrderList.query.filter_by(order_id=OrderId).first()
+    OrderInfo.order_status = OrderStatusId
+    OrderInfo.current_user_id = OrderInfo.owner_id
+
+    OrderInfoDetail = OrderMysqlDDLInfo.query.filter(OrderMysqlDDLInfo.order_id == OrderId)
+    OrderInfoDetail = OrderInfoDetail.filter(OrderMysqlDDLInfo.order_status != -1).first()
+    OrderInfoDetail.order_status = -1
+
+    ddl_info = OrderMysqlDDLInfo(owner_id=OwnerId,
+                                 order_id=OrderId,
+                                 order_title=OrderTitle,
+                                 db_name=DbName,
+                                 remark_text=RemarkText,
+                                 sql_text=SqlText,
+                                 auditor_id=AuditorId,
+                                 current_user_id=AuditorId,
+                                 order_status=OrderStatusId)
+    db.session.add(ddl_info)
+    db.session.commit()
+
+    db.session.commit()
+
+    return jsonify(status=status, msg=msg)
+
+
+@workflow.route('/submitmysqlddl/', methods=['GET', 'POST'])
+def SubmitMysqlDDl():
+    """
+    提交DDL表单
+    """
+    status = 1
+    msg = ""
+    data = None
+
+    OwnerId = current_user.get_id()
+    OrderTitle = request.form.get('OrderTitle')
+    DbName = request.form.get('DbName')
+    RemarkText = request.form.get('RemarkText')
+    SqlText = request.form.get('SqlText')
+    Auditor = request.form.get('Auditor')
+    OrderId = request.form.get('OrderId')
+
+    countorderid = CounterOrderId.CounterOrderId()
+
+    if OwnerId is not None:
+        OrderStatusId = OrderStatus.query.filter_by(name=u'DBA审核').first().id
+        DbTypeId = DatabaseType.query.filter_by(name='mysql').first().id
+        AuditorId = User.query.filter_by(username=Auditor).first().id
+        OrderTypeId = OrderType.query.filter_by(name=u'MySql表结构变更').first().id
+
+        if OrderId is None:
+            OrderIdReturn = countorderid.CounterOrderId()
+            if OrderIdReturn['status'] == -1:
+                msg = OrderIdReturn['msg']
+                return {'status': status, 'msg': msg, 'data': data}
+            OrderId = OrderIdReturn['data']
+
+            order_list = OrderList(order_id=OrderId,
+                                   owner_id=OwnerId,
+                                   order_title=OrderTitle,
+                                   order_type=OrderTypeId,
+                                   db_type=DbTypeId,
+                                   auditor_id=AuditorId,
+                                   current_user_id=AuditorId,
+                                   order_status=OrderStatusId)
+
+            ddl_info = OrderMysqlDDLInfo(owner_id=OwnerId,
+                                         order_id=OrderId,
+                                         order_title=OrderTitle,
+                                         db_name=DbName,
+                                         remark_text=RemarkText,
+                                         sql_text=SqlText,
+                                         auditor_id=AuditorId,
+                                         current_user_id=AuditorId,
+                                         order_status=OrderStatusId)
+            db.session.add(order_list)
+            db.session.add(ddl_info)
+            db.session.commit()
+
+        else:
+            OrderInfo = OrderList.query.filter_by(order_id=OrderId).first()
+            OrderInfoDetail = OrderMysqlDDLInfo.query.filter(OrderMysqlDDLInfo.order_id == OrderId)
+            OrderInfoDetail = OrderInfoDetail.filter(OrderMysqlDDLInfo.order_status != -1).first()
+
+            OrderInfo.current_user_id = AuditorId
+            OrderInfo.order_status = OrderStatusId
+
+            OrderInfoDetail.order_status = -1
+
+            ddl_info = OrderMysqlDDLInfo(owner_id=OwnerId,
+                                         order_id=OrderId,
+                                         order_title=OrderTitle,
+                                         db_name=DbName,
+                                         remark_text=RemarkText,
+                                         sql_text=SqlText,
+                                         auditor_id=AuditorId,
+                                         current_user_id=AuditorId,
+                                         order_status=OrderStatusId)
+            db.session.add(ddl_info)
+            db.session.commit()
+
+    else:
+        status = -1
+        msg = u"用户没有登录."
+
+    return jsonify(status=status, msg=msg, data=data)
+
+
+@workflow.route('/getorderdetail/mysqlddl/<OrderId>', methods=['GET'])
+def GetMysqlDDLInfo(OrderId):
+    data = []
+    RowInfo = OrderMysqlDDLInfo.query.filter(OrderMysqlDDLInfo.order_id == OrderId)
+    RowInfo = RowInfo.filter(OrderMysqlDDLInfo.order_status != -1).first()
+    OrderTitle = RowInfo.order_title
+    DbName = RowInfo.db_name
+    RemarkText = RowInfo.remark_text
+    SqlText = RowInfo.sql_text
+    StatusId = RowInfo.order_status
+    AuditorId = RowInfo.auditor_id
+    OwnerId = RowInfo.owner_id
+    Status = OrderStatus.query.filter_by(id=StatusId).first().name
+    Auditor = User.query.filter_by(id=AuditorId).first().username
+    Owner = User.query.filter_by(id=OwnerId).first().username
+    NowUser = User.query.filter_by(id=current_user.get_id()).first().username
+    OrderId = RowInfo.order_id
+    OwnerId = OwnerId
+
+    data.append(OrderTitle)
+    data.append(DbName)
+    data.append(RemarkText)
+    data.append(SqlText)
+    data.append(Status)
+    data.append(Owner)
+    data.append(Auditor)
+    data.append(NowUser)
+    data.append(OrderId)
+    data.append(OwnerId)
+
+    return jsonify(data=data)

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}数据库发布系统{% endblock %}
+
+{% block main %}
+<div class="col-md-14">
+    <div class="panel panel-default panel-edit">
+        <div class="panel-heading">
+            数据库申请
+        </div>
+        <div class="row">
+            <div class="col-md-8 column">
+                <div class="col-md-4">
+                </div>
+                <div class="col-md-10">
+                {{ Form.hidden_tag() }}
+                <br>
+                    {{ Form.ProjectName.label }} {{ Form.ProjectName(size=40) }}
+                </br>
+                <br>
+                    {{ Form.ProjectRemark.label }} <br>{{ Form.ProjectRemark(size=40) }}</br>
+                </br>
+                <br>
+                    {{ Form.DbName.label }} {{ Form.DbName(size=40) }}
+                </br>
+                <br>
+                    {{ Form.DbArea.label }} {{ Form.DbArea(size=40) }}
+                </br>
+                <br>
+                    {{ Form.LastDate.label }} {{ Form.LastDate(size=40) }}
+                </br>
+                <br>
+                    {{ Form.Worker.label }} {{ Form.Worker(size=40) }}
+                </br>
+                <br>
+                    {{ wtf.form_field(Form.Submit) }}
+                </br>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}数据库发布系统{% endblock %}
+
+{% block main %}
+<div class="panel panel-default">
+    <div class="panel-heading">
+        MySQL表结构变更
+    </div>
+
+    <div class="panel-body p20">
+    <div class="row mt20">
+        <div class="col-lg-8">
+            <form class="form-horizontal">
+
+                <input type="number" class="hidden order_id">
+                <input type="number" class="hidden owner_id">
+
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">*工单名称:</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control order_title text_area" placeholder="">
+                        <p class="help-block">请输工单名称，如:XX项目会员功能建表</p>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">*数据库:</label>
+                    <div class="col-sm-10">
+                        <select class="form-control db_name list_area" required>
+                            <option value="is-empty" disabled="" selected="selected">请选择</option>
+
+                        </select>
+                        <p class="help-block"></p>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">需求说明:</label>
+                    <div class="col-sm-10">
+                        <textarea class="form-control ele_required remark_text text_area" rows=2 required></textarea>
+                        <p class="help-block"></p>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="col-sm-2 control-label">*SQL文本:</label>
+                    <div class="col-sm-10">
+                        <textarea class="form-control ele_required sql_text text_area" rows=20 required></textarea>
+                        <p class="help-block">注:表结构定义语句和数据刷新语句请分开提交</p>
+                    </div>
+                </div>
+
+                <div class="form-group owner_area hidden">
+                    <label class="col-sm-2 control-label">申请人:</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control owner" placeholder="">
+                        <p class="help-block"></p>
+                    </div>
+                </div>
+
+                <div class="form-group suggest_area hidden">
+                    <label class="col-sm-2 control-label">审核建议:</label>
+                    <div class="col-sm-10">
+                        <textarea class="form-control ele_required dba_suggest" rows=4 required></textarea>
+                        <p class="help-block"></p>
+                    </div>
+                </div>
+
+                <div class="form-group auditor_area">
+                    <label class="col-sm-2 control-label">*处理人:</label>
+                    <div class="col-sm-10">
+					    <select class="form-control auditor list_area" required>
+          			    	<option value="is-empty" disabled="" selected="selected">请选择</option>
+
+					    </select>
+                        <p class="help-block"></p>
+                    </div>
+                </div>
+
+                <div class="row clearfix review_area hidden">
+                    <label class="col-sm-2 control-label">校验结果:</label>
+                    <div class="col-sm-10 review_result">
+
+                    </div>
+                </div>
+
+                <div class="form-group dev_btn_area">
+                    <div class="col-sm-10 col-sm-offset-2">
+                        <input type="button" class="king-btn king-primary mr10 review_btn ddl_btn" value="校验" />
+                        <input type="button" class="king-btn king-success mr10 hidden commit_btn" value="提交" />
+                        <input type="button" class="king-btn king-warning mr10 reset_btn" value="重置" />
+                        <input type="button" class="king-btn king-danger mr10 hidden delete_btn" value="废弃" />
+                    </div>
+                </div>
+
+                <div class="form-group review_btn_area hidden">
+                    <div class="col-sm-10 col-sm-offset-2">
+                        <input type="button" class="king-btn king-primary mr10 exec_btn" value="执行" />
+                        <input type="button" class="king-btn king-warning mr10 reject_btn" value="打回" />
+                        <input type="button" class="king-btn king-danger mr10 delete_btn" value="废弃" />
+                    </div>
+                </div>
+
+            </form>
+        </div>
+    </div>
+    </div>
+</div>
+
+
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/GetDBAList.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mysql/GetSchemaList.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mysql/AutoReview.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mysql/SqlTextChange.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mysql/ResetAll.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mysql/Submit.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mysql/StuffForm.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mysql/RejectOrder.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mysql/DeleteOrder.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mysql/ExecSql.js') }}"></script>
+{% endblock %}

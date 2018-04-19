@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}数据库发布系统{% endblock %}
+
+{% block main %}
+<div class="panel-body panel-tab-body pl20 pr20">
+    <div class="panel-content">
+        <ul class="nav nav-tabs" id="myTab">
+            <li class="active">
+                <a href="#todo" data-toggle="tab">我的待办</a>
+            </li>
+            <li>
+                <a href="#doing" data-toggle="tab">正在进行中的工单</a>
+            </li>
+            <li>
+                <a href="#finish" data-toggle="tab">已完成</a>
+            </li>
+            <li>
+                <a href="#all" data-toggle="tab">全部工单</a>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane fade king-block-content active in container-fluid" id="todo">
+                <table class="table table-striped table-hover ordertodolist"></table>
+            </div>
+
+            <div class="tab-pane fade king-block-content in container-fluid" id="doing">
+                <table class="table table-striped table-hover orderdoinglist"></table>
+            </div>
+
+            <div class="tab-pane fade king-block-content in container-fluid" id="finish">
+                <table class="table table-striped table-hover orderfinishlist"></table>
+            </div>
+
+            <div class="tab-pane fade king-block-content in container-fluid" id="all">
+                <table class="table table-striped table-hover orderalllist"></table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/GetOrderList.js') }}"></script>
+{% endblock %}
